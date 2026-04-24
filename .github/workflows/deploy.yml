@@ -1,20 +1,30 @@
 name: Deploy Hugo Site
 on:
   push:
-    branches:
-      - main
+    branches: ["main"]
   workflow_dispatch:
 
+# 设置权限以允许发布到 GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 确保同一时间只有一个部署在运行
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
 jobs:
-  build-deploy:
+  build:
     runs-on: ubuntu-latest
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # 解决你日志里的 Node.js 20 弃用警告
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: recursive  # 强制递归拉取子模块
+          submodules: recursive
           fetch-depth: 0
 
       - name: Setup Hugo
@@ -24,11 +34,20 @@ jobs:
           extended: true
 
       - name: Build
-        # 增加 --verbose 可以在失败时看到详细报错
         run: hugo --minify
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
+          path: ./public
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
