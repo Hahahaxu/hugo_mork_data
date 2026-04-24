@@ -2,32 +2,33 @@ name: Deploy Hugo Site
 on:
   push:
     branches:
-      - main  # 确保你的主分支叫 main
-  workflow_dispatch: # 允许手动触发构建
+      - main
+  workflow_dispatch:
 
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  # 解决你日志里的 Node.js 20 弃用警告
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: true  # 必须开启，否则无法拉取主题子模块
+          submodules: recursive  # 强制递归拉取子模块
           fetch-depth: 0
 
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3
         with:
           hugo-version: 'latest'
-          extended: true # 必须使用扩展版
+          extended: true
 
       - name: Build
-        run: hugo --minify
+        # 增加 --verbose 可以在失败时看到详细报错
+        run: hugo --minify --verbose
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }} # GitHub 自动生成的 Token，无需手动设置
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
