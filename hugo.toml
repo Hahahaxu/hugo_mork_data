@@ -1,33 +1,24 @@
-# 1. 必须修改为你的 GitHub Pages 实际地址
 baseURL = 'https://Hahahaxu.github.io/hugo_mork_data/'
-
-# 2. 语言设置
 languageCode = 'zh-cn'
-title = 'Hahahaxu 的技术随笔'
-
-# 3. 主题名称必须与 themes 文件夹下的目录名完全一致
-# 你之前写的是 'Pap'，必须改回 'PaperMod'
+title = 'Hahahaxu Wiki'
 theme = 'PaperMod'
 
-# 4. 针对 PaperMod 的优化配置 (可选)
 [params]
     env = "production"
     title = "Hahahaxu's Blog"
-    description = "后端开发 | Go 转型 | 软考架构师笔记"
-    
-    # 开启搜索功能 (对你的知识库很有用)
-    [params.fuseOpts]
-        isCaseSensitive = false
-        shouldSort = true
-        location = 0
-        distance = 100
-        threshold = 0.4
-        minMatchCharLength = 0
-        keys = ["title", "permalink", "summary", "content"]
+    description = "Backend Developer | Go | System Architect"
 
-# 5. 确保菜单正常显示
+[params.fuseOpts]
+    isCaseSensitive = false
+    shouldSort = true
+    location = 0
+    distance = 100
+    threshold = 0.4
+    minMatchCharLength = 0
+    keys = ["title", "permalink", "summary", "content"]
+
 [[menu.main]]
     identifier = "posts"
-    name = "笔记"
+    name = "Archive"
     url = "/posts/"
     weight = 10
