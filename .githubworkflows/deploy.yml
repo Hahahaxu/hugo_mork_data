@@ -1,0 +1,33 @@
+name: Deploy Hugo Site
+on:
+  push:
+    branches:
+      - main  # 确保你的主分支叫 main
+  workflow_dispatch: # 允许手动触发构建
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true  # 必须开启，否则无法拉取主题子模块
+          fetch-depth: 0
+
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: 'latest'
+          extended: true # 必须使用扩展版
+
+      - name: Build
+        run: hugo --minify
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }} # GitHub 自动生成的 Token，无需手动设置
+          publish_dir: ./public
