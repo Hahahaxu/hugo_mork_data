@@ -3,6 +3,10 @@ languageCode = 'zh-cn'
 title = 'Hahahaxu Wiki'
 theme = 'PaperMod'
 
+[permalinks]
+    docs = "/学习资料/hugo/:slugorcontentbasename/"
+    "系统架构设计师教程第二版" = "/学习资料/软考/:slugorcontentbasename/"
+
 [params]
     env = "production"
     title = "Hahahaxu's Blog"
@@ -27,10 +31,24 @@ theme = 'PaperMod'
     keys = ["title", "permalink", "summary", "content"]
 
 [[menu.main]]
-    identifier = "docs-hugo"
-    name = "Hugo 搭建"
-    url = "/docs/hugo搭建与发布/"
+    identifier = "learning"
+    name = "学习资料"
+    url = "/学习资料/"
     weight = 5
+
+[[menu.main]]
+    identifier = "learning-hugo"
+    parent = "learning"
+    name = "Hugo"
+    url = "/学习资料/hugo/"
+    weight = 1
+
+[[menu.main]]
+    identifier = "learning-ruankao"
+    parent = "learning"
+    name = "软考"
+    url = "/学习资料/软考/"
+    weight = 2
 
 [[menu.main]]
     identifier = "posts"

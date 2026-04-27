@@ -57,6 +57,73 @@
 {{- end }}
 
 {{- $term := .Data.Term }}
+{{- $isStudySection := and (eq .Kind "section") (or (eq .Section "系统架构设计师教程第二版") (eq .Section "docs")) }}
+{{- if $isStudySection }}
+{{- $studyPages := .RegularPages.ByTitle -}}
+<div class="kb-ruankao-full">
+  <div class="kb-docs-layout">
+    <aside class="kb-docs-sidebar">
+      <h3>{{ .Title }}文档目录</h3>
+      <ol>
+        {{- range $idx, $doc := $studyPages }}
+        {{- $docId := printf "kb-doc-%d" $idx -}}
+        {{- $docTitle := $doc.Title | default $doc.LinkTitle | default $doc.File.BaseFileName | default "未命名文档" -}}
+        <li><a href="#{{ $docId }}" data-doc-id="{{ $docId }}">{{ $docTitle }}</a></li>
+        {{- end }}
+      </ol>
+    </aside>
+    <section class="kb-docs-main">
+      {{- range $idx, $doc := $studyPages }}
+      {{- $docId := printf "kb-doc-%d" $idx -}}
+      {{- $docTitle := $doc.Title | default $doc.LinkTitle | default $doc.File.BaseFileName | default "未命名文档" -}}
+      <article id="{{ $docId }}" class="kb-doc-panel{{ if eq $idx 0 }} is-active{{ end }}">
+        <header class="kb-doc-panel-header">
+          <h2>{{ $docTitle }}</h2>
+          <a class="kb-doc-open-link" href="{{ $doc.RelPermalink }}" target="_blank" rel="noopener noreferrer">打开独立页面</a>
+        </header>
+        <div class="kb-doc-panel-content markdown-pro">
+          {{- if not ($doc.Param "disableAnchoredHeadings") }}
+          {{- partial "anchored_headings.html" $doc.Content -}}
+          {{- else -}}
+          {{- $doc.Content -}}
+          {{- end }}
+        </div>
+      </article>
+      {{- end }}
+      {{- if eq (len $studyPages) 0 }}
+      <p>暂无文档。</p>
+      {{- end }}
+    </section>
+  </div>
+  <script>
+    (function () {
+      var kbWrap = document.querySelector('.kb-ruankao-full');
+      if (!kbWrap) return;
+      var kbLinks = kbWrap.querySelectorAll('[data-doc-id]');
+      var kbPanels = kbWrap.querySelectorAll('.kb-doc-panel');
+      if (!kbLinks.length || !kbPanels.length) return;
+      var kbActivate = function (id) {
+        kbLinks.forEach(function (a) {
+          a.classList.toggle('is-active', a.getAttribute('data-doc-id') === id);
+        });
+        kbPanels.forEach(function (p) {
+          p.classList.toggle('is-active', p.id === id);
+        });
+      };
+      kbLinks.forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          e.preventDefault();
+          var id = a.getAttribute('data-doc-id');
+          if (!id) return;
+          kbActivate(id);
+        });
+      });
+      kbActivate(kbLinks[0].getAttribute('data-doc-id'));
+    })();
+  </script>
+</div>
+{{- end }}
+{{- if not $isStudySection }}
 {{- range $index, $page := $paginator.Pages }}
 
 {{- $class := "post-entry" }}
@@ -97,8 +164,9 @@
   <a class="entry-link" aria-label="post link to {{ .Title | plainify }}" href="{{ .Permalink }}"></a>
 </article>
 {{- end }}
+{{- end }}
 
-{{- if gt $paginator.TotalPages 1 }}
+{{- if and (not $isStudySection) (gt $paginator.TotalPages 1) }}
 <footer class="page-footer">
   <nav class="pagination">
     {{- if $paginator.HasPrev }}

@@ -1,16 +1,25 @@
-{{- $sections := site.Params.mainSections | default (slice "posts") -}}
-{{- $allPages := where site.RegularPages "Type" "in" $sections -}}
+{{- $allPages := site.RegularPages -}}
 {{- $allPages = where $allPages "Draft" "!=" true -}}
 {{- $allPages = sort $allPages "Date" "desc" -}}
 {{- $calendarStyle := site.Params.updateCalendarStyle | default "sakura" -}}
 
 {{- $postEvents := slice -}}
 {{- range $allPages -}}
+  {{- $eventDate := .Date -}}
+  {{- if .Date.IsZero -}}
+    {{- $eventDate = .Lastmod -}}
+  {{- end -}}
+  {{- if $eventDate.IsZero -}}
+    {{- $eventDate = now -}}
+  {{- end -}}
+  {{- $eventTitle := .Title | default .LinkTitle | default .File.BaseFileName | default "未命名页面" -}}
+  {{- $sectionName := .CurrentSection.Title | default .Section | default "未分类" -}}
   {{- $postEvents = $postEvents | append (dict
-    "title" (printf "更新: %s" .Title)
-    "start" (.Date.Format "2006-01-02")
+    "title" (printf "更新: %s" $eventTitle)
+    "start" ($eventDate.Format "2006-01-02")
     "allDay" true
     "className" "event-post"
+    "section" $sectionName
   ) -}}
 {{- end -}}
 
@@ -22,6 +31,8 @@
 
 <section class="update-calendar card style-{{ $calendarStyle }}">
   <div class="kb-calendar-picker">
+    <label for="kb-section-select">目录</label>
+    <select id="kb-section-select"></select>
     <label for="kb-year-select">年</label>
     <select id="kb-year-select"></select>
     <label for="kb-month-select">月</label>
@@ -65,6 +76,7 @@
     var kbPickSummary = document.getElementById('kb-selected-date');
     var kbYearEl = document.getElementById('kb-year-select');
     var kbMonthEl = document.getElementById('kb-month-select');
+  var kbSectionEl = document.getElementById('kb-section-select');
     if (!kbRoot || !kbCalHost) return;
 
     var kbPostEvents = {{ $postEvents | jsonify | safeJS }};
@@ -79,6 +91,12 @@
       };
     });
     var kbAllEvents = kbPostEvents.concat(kbHolidayEvents);
+    var kbFilteredEvents = kbAllEvents.slice();
+    var kbSectionMap = {};
+    kbPostEvents.forEach(function (ev) {
+      var kbSection = ev.section || '未分类';
+      kbSectionMap[kbSection] = true;
+    });
     var kbCalendarApi = null;
     var kbLatestDateStr = '{{ $latestDate }}';
     var kbFcBase = {{ "vendor/fullcalendar/" | absURL | jsonify | safeJS }};
@@ -116,13 +134,16 @@
       var kbCell = kbCalHost.querySelector('[data-date="' + kbDateStr + '"]');
       if (kbCell) kbCell.classList.add('kb-date-selected');
       if (!kbPickSummary) return;
-      var kbHits = kbAllEvents.filter(function (ev) { return ev.start === kbDateStr; });
+      var kbHits = kbFilteredEvents.filter(function (ev) { return ev.start === kbDateStr; });
       if (kbHits.length === 0) {
         kbPickSummary.textContent = '已选日期：' + kbDateStr + '（当日无节假日或更新）';
         return;
       }
       var kbHtml = '<strong>已选日期：' + kbDateStr + '</strong><ul>';
-      kbHits.forEach(function (ev) { kbHtml += '<li>' + ev.title + '</li>'; });
+      kbHits.forEach(function (ev) {
+        var kbPrefix = ev.section ? ('[' + ev.section + '] ') : '';
+        kbHtml += '<li>' + kbPrefix + ev.title + '</li>';
+      });
       kbHtml += '</ul>';
       kbPickSummary.innerHTML = kbHtml;
     };
@@ -175,6 +196,43 @@
       kbMonthEl.onchange = kbOnYearMonthChange;
     };
 
+    var kbApplySectionFilter = function () {
+      if (!kbSectionEl) return;
+      var kbSection = kbSectionEl.value || '__all__';
+      kbFilteredEvents = kbAllEvents.filter(function (ev) {
+        if (kbSection === '__all__') return true;
+        if (!ev.section) return true;
+        return ev.section === kbSection;
+      });
+      if (kbCalendarApi) {
+        kbCalendarApi.removeAllEvents();
+        kbFilteredEvents.forEach(function (ev) { kbCalendarApi.addEvent(ev); });
+      }
+    };
+
+    var kbInitSectionPicker = function () {
+      if (!kbSectionEl) return;
+      kbSectionEl.innerHTML = '';
+      var kbAllOpt = document.createElement('option');
+      kbAllOpt.value = '__all__';
+      kbAllOpt.textContent = '全部';
+      kbSectionEl.appendChild(kbAllOpt);
+      Object.keys(kbSectionMap).sort().forEach(function (name) {
+        var kbOpt = document.createElement('option');
+        kbOpt.value = name;
+        kbOpt.textContent = name;
+        kbSectionEl.appendChild(kbOpt);
+      });
+      kbSectionEl.onchange = function () {
+        kbApplySectionFilter();
+        var kbDate = kbCalendarApi ? kbCalendarApi.getDate() : new Date(kbLatestDateStr);
+        kbSyncYearMonth(kbDate);
+        var kbMonth = String(kbDate.getMonth() + 1).padStart(2, '0');
+        var kbDay = String(kbDate.getDate()).padStart(2, '0');
+        kbSelectDate(kbDate.getFullYear() + '-' + kbMonth + '-' + kbDay);
+      };
+    };
+
     var kbRenderCalendar = function () {
       if (typeof FullCalendar === 'undefined') {
         kbCalHost.innerHTML = '<p style="color:#c05086;margin:.4rem 0">日历组件加载失败，请检查网络后刷新。</p>';
@@ -189,13 +247,15 @@
         dayMaxEvents: 2,
         headerToolbar: { left: 'today', center: 'title', right: '' },
         buttonText: { today: '本月' },
-        events: kbAllEvents,
+        events: kbFilteredEvents,
         eventDisplay: 'block',
         eventDidMount: function (info) { info.el.title = info.event.title; },
         dateClick: function (info) { kbSelectDate(info.dateStr); }
       });
       kbCal.render();
       kbCalendarApi = kbCal;
+      kbInitSectionPicker();
+      kbApplySectionFilter();
       kbInitMonthPicker();
       kbSelectDate(kbLatestDateStr);
     };

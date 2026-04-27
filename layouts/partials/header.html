@@ -95,12 +95,17 @@
         </div>
         {{- $currentPage := . }}
         <ul id="menu" class="menu">
-            {{- range site.Menus.main }}
-            {{- $menu_item_url := (cond (strings.HasSuffix .URL "/") .URL (printf "%s/" .URL) ) | absLangURL }}
-            {{- $page_url:= $currentPage.Permalink | absLangURL }}
+            {{- range where site.Menus.main "Parent" "" }}
+            {{- $menu_item_url := (cond (strings.HasSuffix .URL "/") .URL (printf "%s/" .URL) ) | relLangURL }}
+            {{- $page_url:= $currentPage.RelPermalink | relLangURL }}
             {{- $is_search := eq (site.GetPage .KeyName).Layout `search` }}
-            <li>
-                <a href="{{ .URL | absLangURL }}" title="{{ .Title | default .Name }} {{- cond $is_search (" (Alt + /)" | safeHTMLAttr) ("" | safeHTMLAttr ) }}"
+            {{- $children := where site.Menus.main "Parent" .Identifier }}
+            <li class="{{ if gt (len $children) 0 }}menu-has-children{{ end }}">
+                {{- $menuHref := .URL -}}
+                {{- if not (findRE "://" .URL) -}}
+                  {{- $menuHref = .URL | relLangURL -}}
+                {{- end -}}
+                <a href="{{ $menuHref }}" title="{{ .Title | default .Name }} {{- cond $is_search (" (Alt + /)" | safeHTMLAttr) ("" | safeHTMLAttr ) }}"
                 {{- cond $is_search (" accesskey=/" | safeHTMLAttr) ("" | safeHTMLAttr ) }}>
                     <span {{- if eq $menu_item_url $page_url }} class="active" {{- end }}>
                         {{- .Pre }}
@@ -116,6 +121,22 @@
                     </svg>
                     {{- end }}
                 </a>
+                {{- if gt (len $children) 0 }}
+                <ul class="sub-menu">
+                    {{- range $children }}
+                    {{- $child_url := (cond (strings.HasSuffix .URL "/") .URL (printf "%s/" .URL) ) | relLangURL }}
+                    {{- $childHref := .URL -}}
+                    {{- if not (findRE "://" .URL) -}}
+                      {{- $childHref = .URL | relLangURL -}}
+                    {{- end -}}
+                    <li>
+                        <a href="{{ $childHref }}" title="{{ .Title | default .Name }}">
+                            <span {{- if eq $child_url $page_url }} class="active" {{- end }}>{{ .Name }}</span>
+                        </a>
+                    </li>
+                    {{- end }}
+                </ul>
+                {{- end }}
             </li>
             {{- end }}
         </ul>
