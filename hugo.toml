@@ -27,6 +27,12 @@ theme = 'PaperMod'
     keys = ["title", "permalink", "summary", "content"]
 
 [[menu.main]]
+    identifier = "docs-hugo"
+    name = "Hugo 搭建"
+    url = "/docs/hugo搭建与发布/"
+    weight = 5
+
+[[menu.main]]
     identifier = "posts"
     name = "Archive"
     url = "/posts/"

@@ -1,4 +1,9 @@
-# Hugo 站点搭建与发布说明
++++
+title = "Hugo 站点搭建与发布说明"
+date = 2026-04-27T12:00:00+08:00
+draft = false
+description = "本地搭建、子模块与 GitHub Pages 发布流程说明"
++++
 
 本文档总结本仓库（PaperMod 主题 + GitHub Pages）的 **本地搭建** 与 **自动发布** 流程，便于复现与交接。
 
@@ -103,12 +108,13 @@ hugo --minify
 
 | 路径 | 说明 |
 | --- | --- |
-| `content/` | 文章与页面 Markdown |
+| `content/` | **会生成网页** 的 Markdown；可见文档应放在此目录（如本页的 `content/docs/`） |
 | `layouts/` | 覆盖主题的模板（如 `_default/list.html`、`partials/`） |
 | `static/` | 原样复制到站点根路径的静态文件（如 `favicon.svg`、`vendor/`） |
 | `assets/css/extended/` | PaperMod 会合并的扩展样式 |
 | `data/` | 数据文件（如节假日 JSON 等），模板内可读 |
 | `themes/PaperMod/` | 子模块主题，一般不在主仓库直接改主题源码 |
+| 仓库根目录 `docs/` | **默认不参与 Hugo 构建**；仅适合放仓库说明类文件，与 `content/` 区分 |
 
 ---
 
@@ -150,6 +156,7 @@ hugo --minify
 | 本地连接被拒绝 | 未启动 `hugo server` 或端口错误 | 确认命令与浏览器访问的 host/port 一致 |
 | `hugo --minify` 后功能异常 | 压缩导致脚本冲突或语法敏感 | 调整内联脚本命名空间、加载顺序；避免与第三方全局名碰撞 |
 | 日历等组件布局异常 | 主题全局 CSS 与组件假设冲突 | 在组件根容器上覆盖样式（例如恢复 `table` 的表格布局） |
+| 提交了 Markdown 但网页没有 | 文件不在 `content/` 下 | 将页面移到 `content/...`，并设置 `draft = false` |
 
 ---
 
