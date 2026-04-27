@@ -109,7 +109,7 @@
       if (!selectedDateEl) return;
       var matched = allEvents.filter(function (e) { return e.start === dateStr; });
       if (matched.length === 0) {
-        selectedDateEl.textContent = '已选日期：' + dateStr + '（无事件）';
+        selectedDateEl.textContent = '已选日期：' + dateStr + '（当日无节假日或更新）';
         return;
       }
       var html = '<strong>已选日期：' + dateStr + '</strong><ul>';
@@ -173,9 +173,18 @@
         var y = parseInt(yearSelect.value, 10);
         var m = parseInt(monthSelect.value, 10);
         if (!y || !m) return;
-        var target = y + '-' + String(m).padStart(2, '0') + '-01';
+        var ym = y + '-' + String(m).padStart(2, '0');
+        var target = ym + '-01';
+        var firstEventInMonth = null;
+        for (var i = 0; i < allEvents.length; i++) {
+          if (typeof allEvents[i].start === 'string' && allEvents[i].start.indexOf(ym + '-') === 0) {
+            if (!firstEventInMonth || allEvents[i].start < firstEventInMonth) {
+              firstEventInMonth = allEvents[i].start;
+            }
+          }
+        }
         calendarInstance.gotoDate(target);
-        selectDate(target);
+        selectDate(firstEventInMonth || target);
       };
       yearSelect.onchange = onPickerChange;
       monthSelect.onchange = onPickerChange;
