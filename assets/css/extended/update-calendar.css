@@ -73,6 +73,40 @@
   box-shadow: 0 6px 14px rgba(186, 121, 185, 0.28);
 }
 
+/*
+ * PaperMod reset.css 将全局 table 设为 display:block，会破坏 FullCalendar 的表格布局，
+ * 表现为 fc-scrollgrid 存在但月历格子不展开。仅在日历容器内恢复表格 display。
+ */
+#kb-full-calendar .fc-scrollgrid table,
+#kb-full-calendar .fc table {
+  display: table;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+#kb-full-calendar .fc-scrollgrid thead {
+  display: table-header-group;
+}
+
+#kb-full-calendar .fc-scrollgrid tbody {
+  display: table-row-group;
+}
+
+#kb-full-calendar .fc-scrollgrid tr {
+  display: table-row;
+}
+
+#kb-full-calendar .fc-scrollgrid th,
+#kb-full-calendar .fc-scrollgrid td {
+  display: table-cell;
+  vertical-align: top;
+}
+
+#kb-full-calendar .fc-daygrid-body table {
+  display: table !important;
+}
+
 /* FullCalendar base tweaks */
 #kb-full-calendar .fc-toolbar-title {
   font-size: 1rem;
