@@ -51,147 +51,162 @@
   #kb-full-calendar .event-holiday{background:#ff6b7f;border:none;color:#fff}
   #kb-full-calendar .event-workday{background:#a58653;border:none;color:#fff}
 </style>
-<script src="{{ "vendor/fullcalendar/index.global.min.js" | absURL }}"></script>
-<script src="{{ "vendor/fullcalendar/locales-all.global.min.js" | absURL }}"></script>
 <script>
+  /* 使用唯一变量名，避免 hugo --minify 压缩后与回调函数短名冲突导致线上脚本异常 */
   (function () {
-    var root = document.querySelector('.update-calendar');
-    var calendarEl = document.getElementById('kb-full-calendar');
-    var selectedDateEl = document.getElementById('kb-selected-date');
-    var yearSelect = document.getElementById('kb-year-select');
-    var monthSelect = document.getElementById('kb-month-select');
-    if (!root || !calendarEl) return;
+    var kbRoot = document.querySelector('.update-calendar');
+    var kbCalHost = document.getElementById('kb-full-calendar');
+    var kbPickSummary = document.getElementById('kb-selected-date');
+    var kbYearEl = document.getElementById('kb-year-select');
+    var kbMonthEl = document.getElementById('kb-month-select');
+    if (!kbRoot || !kbCalHost) return;
 
-    var postEvents = {{ $postEvents | jsonify | safeJS }};
-    var holidayRaw = {{ $holidayEvents | jsonify | safeJS }};
-    var holidayEvents = holidayRaw.map(function (item) {
-      var cls = item.isWorkday ? 'event-workday' : 'event-holiday';
+    var kbPostEvents = {{ $postEvents | jsonify | safeJS }};
+    var kbHolidayRaw = {{ $holidayEvents | jsonify | safeJS }};
+    var kbHolidayEvents = kbHolidayRaw.map(function (item) {
+      var kbCls = item.isWorkday ? 'event-workday' : 'event-holiday';
       return {
         title: item.name + (item.isWorkday ? '（调休上班）' : ''),
         start: item.date,
         allDay: true,
-        className: cls
+        className: kbCls
       };
     });
-    var allEvents = postEvents.concat(holidayEvents);
-    var calendarInstance = null;
+    var kbAllEvents = kbPostEvents.concat(kbHolidayEvents);
+    var kbCalendarApi = null;
+    var kbLatestDateStr = '{{ $latestDate }}';
+    var kbFcBase = {{ "vendor/fullcalendar/" | absURL | jsonify | safeJS }};
 
-    var toggleButton = document.getElementById('calendar-style-toggle');
-    var storageKey = 'update-calendar-style';
-    var applyStyle = function (style) {
-      var isStarry = style === 'starry';
-      root.classList.toggle('style-starry', isStarry);
-      root.classList.toggle('style-sakura', !isStarry);
-      if (toggleButton) {
-        toggleButton.classList.toggle('is-starry', isStarry);
-        toggleButton.setAttribute('title', isStarry ? '当前: 星空蓝，点击切换到樱花粉' : '当前: 樱花粉，点击切换到星空蓝');
-        toggleButton.setAttribute('aria-label', isStarry ? '当前: 星空蓝，点击切换到樱花粉' : '当前: 樱花粉，点击切换到星空蓝');
+    var kbToggleBtn = document.getElementById('calendar-style-toggle');
+    var kbStyleKey = 'update-calendar-style';
+    var kbApplyTheme = function (kbStyle) {
+      var kbIsStarry = kbStyle === 'starry';
+      kbRoot.classList.toggle('style-starry', kbIsStarry);
+      kbRoot.classList.toggle('style-sakura', !kbIsStarry);
+      if (kbToggleBtn) {
+        kbToggleBtn.classList.toggle('is-starry', kbIsStarry);
+        kbToggleBtn.setAttribute('title', kbIsStarry ? '当前: 星空蓝，点击切换到樱花粉' : '当前: 樱花粉，点击切换到星空蓝');
+        kbToggleBtn.setAttribute('aria-label', kbIsStarry ? '当前: 星空蓝，点击切换到樱花粉' : '当前: 樱花粉，点击切换到星空蓝');
       }
     };
 
-    var current = localStorage.getItem(storageKey);
-    if (current !== 'sakura' && current !== 'starry') {
-      current = root.classList.contains('style-starry') ? 'starry' : 'sakura';
+    var kbStored = localStorage.getItem(kbStyleKey);
+    if (kbStored !== 'sakura' && kbStored !== 'starry') {
+      kbStored = kbRoot.classList.contains('style-starry') ? 'starry' : 'sakura';
     }
-    applyStyle(current);
+    kbApplyTheme(kbStored);
 
-    if (toggleButton) {
-      toggleButton.addEventListener('click', function () {
-        var style = root.classList.contains('style-starry') ? 'sakura' : 'starry';
-        applyStyle(style);
-        localStorage.setItem(storageKey, style);
+    if (kbToggleBtn) {
+      kbToggleBtn.addEventListener('click', function () {
+        var kbNext = kbRoot.classList.contains('style-starry') ? 'sakura' : 'starry';
+        kbApplyTheme(kbNext);
+        localStorage.setItem(kbStyleKey, kbNext);
       });
     }
 
-    var selectDate = function (dateStr) {
-      var oldSel = calendarEl.querySelector('.kb-date-selected');
-      if (oldSel) oldSel.classList.remove('kb-date-selected');
-      var cell = calendarEl.querySelector('[data-date="' + dateStr + '"]');
-      if (cell) cell.classList.add('kb-date-selected');
-      if (!selectedDateEl) return;
-      var matched = allEvents.filter(function (e) { return e.start === dateStr; });
-      if (matched.length === 0) {
-        selectedDateEl.textContent = '已选日期：' + dateStr + '（当日无节假日或更新）';
+    var kbSelectDate = function (kbDateStr) {
+      var kbPrev = kbCalHost.querySelector('.kb-date-selected');
+      if (kbPrev) kbPrev.classList.remove('kb-date-selected');
+      var kbCell = kbCalHost.querySelector('[data-date="' + kbDateStr + '"]');
+      if (kbCell) kbCell.classList.add('kb-date-selected');
+      if (!kbPickSummary) return;
+      var kbHits = kbAllEvents.filter(function (ev) { return ev.start === kbDateStr; });
+      if (kbHits.length === 0) {
+        kbPickSummary.textContent = '已选日期：' + kbDateStr + '（当日无节假日或更新）';
         return;
       }
-      var html = '<strong>已选日期：' + dateStr + '</strong><ul>';
-      matched.forEach(function (item) { html += '<li>' + item.title + '</li>'; });
-      html += '</ul>';
-      selectedDateEl.innerHTML = html;
+      var kbHtml = '<strong>已选日期：' + kbDateStr + '</strong><ul>';
+      kbHits.forEach(function (ev) { kbHtml += '<li>' + ev.title + '</li>'; });
+      kbHtml += '</ul>';
+      kbPickSummary.innerHTML = kbHtml;
     };
 
-    var renderCalendar = function () {
+    var kbSyncYearMonth = function (kbDateObj) {
+      if (!kbYearEl || !kbMonthEl || !kbDateObj) return;
+      kbYearEl.value = String(kbDateObj.getFullYear());
+      kbMonthEl.value = String(kbDateObj.getMonth() + 1);
+    };
+
+    var kbInitMonthPicker = function () {
+      if (!kbYearEl || !kbMonthEl || !kbCalendarApi) return;
+      if (kbYearEl.options.length === 0) {
+        var kbBaseY = new Date(kbLatestDateStr).getFullYear();
+        var kbY;
+        for (kbY = kbBaseY - 5; kbY <= kbBaseY + 5; kbY++) {
+          var kbOptY = document.createElement('option');
+          kbOptY.value = String(kbY);
+          kbOptY.textContent = kbY + '年';
+          kbYearEl.appendChild(kbOptY);
+        }
+        var kbM;
+        for (kbM = 1; kbM <= 12; kbM++) {
+          var kbOptM = document.createElement('option');
+          kbOptM.value = String(kbM);
+          kbOptM.textContent = kbM + '月';
+          kbMonthEl.appendChild(kbOptM);
+        }
+      }
+      kbSyncYearMonth(kbCalendarApi.getDate());
+      var kbOnYearMonthChange = function () {
+        var kbY = parseInt(kbYearEl.value, 10);
+        var kbMon = parseInt(kbMonthEl.value, 10);
+        if (!kbY || !kbMon) return;
+        var kbYm = kbY + '-' + String(kbMon).padStart(2, '0');
+        var kbFirstOfMonth = kbYm + '-01';
+        var kbFirstHit = null;
+        var kbIdx;
+        for (kbIdx = 0; kbIdx < kbAllEvents.length; kbIdx++) {
+          if (typeof kbAllEvents[kbIdx].start === 'string' && kbAllEvents[kbIdx].start.indexOf(kbYm + '-') === 0) {
+            if (!kbFirstHit || kbAllEvents[kbIdx].start < kbFirstHit) {
+              kbFirstHit = kbAllEvents[kbIdx].start;
+            }
+          }
+        }
+        kbCalendarApi.gotoDate(kbFirstOfMonth);
+        kbSelectDate(kbFirstHit || kbFirstOfMonth);
+      };
+      kbYearEl.onchange = kbOnYearMonthChange;
+      kbMonthEl.onchange = kbOnYearMonthChange;
+    };
+
+    var kbRenderCalendar = function () {
       if (typeof FullCalendar === 'undefined') {
-        calendarEl.innerHTML = '<p style="color:#c05086;margin:.4rem 0">日历组件加载失败，请检查网络后刷新。</p>';
+        kbCalHost.innerHTML = '<p style="color:#c05086;margin:.4rem 0">日历组件加载失败，请检查网络后刷新。</p>';
         return;
       }
-      var calendar = new FullCalendar.Calendar(calendarEl, {
+      var kbCal = new FullCalendar.Calendar(kbCalHost, {
         locale: 'zh-cn',
         initialView: 'dayGridMonth',
-        initialDate: '{{ $latestDate }}',
+        initialDate: kbLatestDateStr,
         firstDay: 1,
         height: 'auto',
         dayMaxEvents: 2,
         headerToolbar: { left: 'today', center: 'title', right: '' },
         buttonText: { today: '本月' },
-        events: allEvents,
+        events: kbAllEvents,
         eventDisplay: 'block',
         eventDidMount: function (info) { info.el.title = info.event.title; },
-        dateClick: function (info) {
-          selectDate(info.dateStr);
-        }
+        dateClick: function (info) { kbSelectDate(info.dateStr); }
       });
-      calendar.render();
-      calendarInstance = calendar;
-      initMonthPicker();
-      selectDate('{{ $latestDate }}');
+      kbCal.render();
+      kbCalendarApi = kbCal;
+      kbInitMonthPicker();
+      kbSelectDate(kbLatestDateStr);
     };
 
-    var updatePickerFromDate = function (dateObj) {
-      if (!yearSelect || !monthSelect || !dateObj) return;
-      yearSelect.value = String(dateObj.getFullYear());
-      monthSelect.value = String(dateObj.getMonth() + 1);
+    var kbLoadScript = function (kbSrc, kbDone, kbFail) {
+      var kbS = document.createElement('script');
+      kbS.src = kbSrc;
+      kbS.async = false;
+      kbS.onload = kbDone;
+      kbS.onerror = kbFail || kbDone;
+      document.head.appendChild(kbS);
     };
 
-    var initMonthPicker = function () {
-      if (!yearSelect || !monthSelect || !calendarInstance) return;
-      if (yearSelect.options.length === 0) {
-        var baseYear = new Date('{{ $latestDate }}').getFullYear();
-        for (var y = baseYear - 5; y <= baseYear + 5; y++) {
-          var o = document.createElement('option');
-          o.value = String(y);
-          o.textContent = y + '年';
-          yearSelect.appendChild(o);
-        }
-        for (var m = 1; m <= 12; m++) {
-          var mo = document.createElement('option');
-          mo.value = String(m);
-          mo.textContent = m + '月';
-          monthSelect.appendChild(mo);
-        }
-      }
-      updatePickerFromDate(calendarInstance.getDate());
-      var onPickerChange = function () {
-        var y = parseInt(yearSelect.value, 10);
-        var m = parseInt(monthSelect.value, 10);
-        if (!y || !m) return;
-        var ym = y + '-' + String(m).padStart(2, '0');
-        var target = ym + '-01';
-        var firstEventInMonth = null;
-        for (var i = 0; i < allEvents.length; i++) {
-          if (typeof allEvents[i].start === 'string' && allEvents[i].start.indexOf(ym + '-') === 0) {
-            if (!firstEventInMonth || allEvents[i].start < firstEventInMonth) {
-              firstEventInMonth = allEvents[i].start;
-            }
-          }
-        }
-        calendarInstance.gotoDate(target);
-        selectDate(firstEventInMonth || target);
-      };
-      yearSelect.onchange = onPickerChange;
-      monthSelect.onchange = onPickerChange;
-    };
-
-    renderCalendar();
+    kbLoadScript(kbFcBase + 'index.global.min.js', function () {
+      kbLoadScript(kbFcBase + 'locales-all.global.min.js', kbRenderCalendar, kbRenderCalendar);
+    }, function () {
+      kbCalHost.innerHTML = '<p style="color:#c05086;margin:.4rem 0">日历脚本加载失败。</p>';
+    });
   })();
 </script>
