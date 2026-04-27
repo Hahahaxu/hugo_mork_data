@@ -51,6 +51,8 @@
   #kb-full-calendar .event-holiday{background:#ff6b7f;border:none;color:#fff}
   #kb-full-calendar .event-workday{background:#a58653;border:none;color:#fff}
 </style>
+<script src="{{ "vendor/fullcalendar/index.global.min.js" | absURL }}"></script>
+<script src="{{ "vendor/fullcalendar/locales-all.global.min.js" | absURL }}"></script>
 <script>
   (function () {
     var root = document.querySelector('.update-calendar');
@@ -190,30 +192,6 @@
       monthSelect.onchange = onPickerChange;
     };
 
-    var loadScript = function (src, onOk, onErr) {
-      var s = document.createElement('script');
-      s.src = src;
-      s.defer = true;
-      s.onload = onOk;
-      s.onerror = onErr;
-      document.head.appendChild(s);
-    };
-    var loadCss = function (href) {
-      var l = document.createElement('link');
-      l.rel = 'stylesheet';
-      l.href = href;
-      document.head.appendChild(l);
-    };
-
-    // Try jsDelivr first, then unpkg fallback.
-    loadCss('https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css');
-    loadScript('https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js', function () {
-      loadScript('https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/locales-all.global.min.js', renderCalendar, renderCalendar);
-    }, function () {
-      loadCss('https://unpkg.com/fullcalendar@6.1.15/index.global.min.css');
-      loadScript('https://unpkg.com/fullcalendar@6.1.15/index.global.min.js', function () {
-        loadScript('https://unpkg.com/fullcalendar@6.1.15/locales-all.global.min.js', renderCalendar, renderCalendar);
-      }, renderCalendar);
-    });
+    renderCalendar();
   })();
 </script>
