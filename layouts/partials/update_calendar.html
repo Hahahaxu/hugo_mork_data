@@ -1,0 +1,50 @@
+{{- $sections := site.Params.mainSections | default (slice "posts") -}}
+{{- $allPages := where site.RegularPages "Type" "in" $sections -}}
+{{- $allPages = where $allPages "Draft" "!=" true -}}
+{{- $allPages = sort $allPages "Date" "desc" -}}
+
+{{- $updateMap := dict -}}
+{{- $latestYear := now.Year -}}
+{{- $latestMonth := now.Month -}}
+{{- if gt (len $allPages) 0 -}}
+  {{- $latest := index $allPages 0 -}}
+  {{- $latestYear = $latest.Date.Year -}}
+  {{- $latestMonth = $latest.Date.Month -}}
+{{- end -}}
+
+{{- range $allPages -}}
+  {{- $k := .Date.Format "2006-01-02" -}}
+  {{- $existing := index $updateMap $k | default 0 -}}
+  {{- $updateMap = merge $updateMap (dict $k (add $existing 1)) -}}
+{{- end -}}
+
+{{- $monthStart := time.AsTime (printf "%04d-%02d-01" $latestYear $latestMonth) -}}
+{{- $weekdayRaw := int ($monthStart.Format "1") -}}
+{{- $leading := mod (add $weekdayRaw 6) 7 -}}
+{{- $nextMonth := $monthStart.AddDate 0 1 0 -}}
+{{- $daysInMonth := int ($nextMonth.AddDate 0 0 -1).Day -}}
+
+<section class="update-calendar card">
+  <div class="update-calendar-header">
+    <h2>更新日历</h2>
+    <span>{{ printf "%04d-%02d" $latestYear $latestMonth }}</span>
+  </div>
+  <div class="update-calendar-grid update-calendar-week">
+    <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+  </div>
+  <div class="update-calendar-grid">
+    {{- if gt $leading 0 -}}
+    {{- range seq $leading -}}
+    <span class="update-calendar-day is-empty"></span>
+    {{- end -}}
+    {{- end -}}
+    {{- range seq $daysInMonth -}}
+      {{- $day := . -}}
+      {{- $dateKey := printf "%04d-%02d-%02d" $latestYear $latestMonth $day -}}
+      {{- $count := index $updateMap $dateKey | default 0 -}}
+      <span class="update-calendar-day{{ if gt $count 0 }} is-updated{{ end }}" title="{{ $dateKey }}{{ if gt $count 0 }} · 更新 {{ $count }} 篇{{ end }}">
+        {{ $day }}
+      </span>
+    {{- end -}}
+  </div>
+</section>

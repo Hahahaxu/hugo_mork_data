@@ -1,0 +1,61 @@
+.update-calendar {
+  margin: 1.2rem 0 1.4rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.update-calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.8rem;
+}
+
+.update-calendar-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.update-calendar-header span {
+  color: var(--secondary);
+  font-size: 0.95rem;
+}
+
+.update-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.35rem;
+}
+
+.update-calendar-week {
+  margin-bottom: 0.45rem;
+}
+
+.update-calendar-week span {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--secondary);
+}
+
+.update-calendar-day {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  border-radius: 8px;
+  background: var(--theme);
+  border: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.update-calendar-day.is-empty {
+  border-color: transparent;
+  background: transparent;
+}
+
+.update-calendar-day.is-updated {
+  background: color-mix(in srgb, var(--primary) 18%, var(--theme));
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  font-weight: 600;
+}
