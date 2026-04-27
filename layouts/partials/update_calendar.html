@@ -2,49 +2,209 @@
 {{- $allPages := where site.RegularPages "Type" "in" $sections -}}
 {{- $allPages = where $allPages "Draft" "!=" true -}}
 {{- $allPages = sort $allPages "Date" "desc" -}}
+{{- $calendarStyle := site.Params.updateCalendarStyle | default "sakura" -}}
 
-{{- $updateMap := dict -}}
-{{- $latestYear := now.Year -}}
-{{- $latestMonth := now.Month -}}
-{{- if gt (len $allPages) 0 -}}
-  {{- $latest := index $allPages 0 -}}
-  {{- $latestYear = $latest.Date.Year -}}
-  {{- $latestMonth = $latest.Date.Month -}}
-{{- end -}}
-
+{{- $postEvents := slice -}}
 {{- range $allPages -}}
-  {{- $k := .Date.Format "2006-01-02" -}}
-  {{- $existing := index $updateMap $k | default 0 -}}
-  {{- $updateMap = merge $updateMap (dict $k (add $existing 1)) -}}
+  {{- $postEvents = $postEvents | append (dict
+    "title" (printf "更新: %s" .Title)
+    "start" (.Date.Format "2006-01-02")
+    "allDay" true
+    "className" "event-post"
+  ) -}}
 {{- end -}}
 
-{{- $monthStart := time.AsTime (printf "%04d-%02d-01" $latestYear $latestMonth) -}}
-{{- $weekdayRaw := int ($monthStart.Format "1") -}}
-{{- $leading := mod (add $weekdayRaw 6) 7 -}}
-{{- $nextMonth := $monthStart.AddDate 0 1 0 -}}
-{{- $daysInMonth := int ($nextMonth.AddDate 0 0 -1).Day -}}
+{{- $holidayEvents := hugo.Data.holidays.cn.holidays | default (slice) -}}
+{{- $latestDate := now.Format "2006-01-02" -}}
+{{- if gt (len $allPages) 0 -}}
+  {{- $latestDate = (index $allPages 0).Date.Format "2006-01-02" -}}
+{{- end -}}
 
-<section class="update-calendar card">
-  <div class="update-calendar-header">
-    <h2>更新日历</h2>
-    <span>{{ printf "%04d-%02d" $latestYear $latestMonth }}</span>
+<section class="update-calendar card style-{{ $calendarStyle }}">
+  <div class="kb-calendar-picker">
+    <label for="kb-year-select">年</label>
+    <select id="kb-year-select"></select>
+    <label for="kb-month-select">月</label>
+    <select id="kb-month-select"></select>
   </div>
-  <div class="update-calendar-grid update-calendar-week">
-    <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
-  </div>
-  <div class="update-calendar-grid">
-    {{- if gt $leading 0 -}}
-    {{- range seq $leading -}}
-    <span class="update-calendar-day is-empty"></span>
-    {{- end -}}
-    {{- end -}}
-    {{- range seq $daysInMonth -}}
-      {{- $day := . -}}
-      {{- $dateKey := printf "%04d-%02d-%02d" $latestYear $latestMonth $day -}}
-      {{- $count := index $updateMap $dateKey | default 0 -}}
-      <span class="update-calendar-day{{ if gt $count 0 }} is-updated{{ end }}" title="{{ $dateKey }}{{ if gt $count 0 }} · 更新 {{ $count }} 篇{{ end }}">
-        {{ $day }}
-      </span>
-    {{- end -}}
-  </div>
+  <div id="kb-selected-date" class="kb-selected-date">已选日期：-</div>
+  <div id="kb-full-calendar"></div>
 </section>
+<style>
+  /* Critical fallback styles (avoid cache/CDN issues) */
+  .update-calendar{border-radius:20px;padding:1rem;margin:1rem 0;background:#fff5fb;border:1px solid #ffd0ea}
+  .update-calendar.style-starry{background:#eef4ff;border-color:#89a4ff}
+  .kb-selected-date{margin:.3rem 0 .7rem;padding:.45rem .6rem;border-radius:10px;background:rgba(255,255,255,.66);border:1px solid rgba(255,213,239,.75);font-size:.88rem}
+  .kb-selected-date ul{margin:.3rem 0 0;padding-left:1.1rem}
+  .kb-selected-date li{margin:.15rem 0}
+  .kb-calendar-picker{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;margin:.2rem 0 .6rem}
+  .kb-calendar-picker label{font-size:.84rem;color:#8b76c7}
+  .kb-calendar-picker select{border:1px solid rgba(255,213,239,.82);border-radius:999px;padding:.2rem .55rem;background:rgba(255,255,255,.82)}
+  #kb-full-calendar .fc-daygrid-day.kb-date-selected{background:rgba(255,170,219,.14)}
+  #kb-full-calendar .fc-daygrid-day.kb-date-selected .fc-daygrid-day-number{font-weight:700;color:#c24f95}
+  .logo a{font-weight:700!important;letter-spacing:.02em!important;background:linear-gradient(120deg,#ff6fb4,#8f7cff 55%,#5cc8ff)!important;-webkit-background-clip:text!important;background-clip:text!important;color:transparent!important}
+  .footer{display:flex!important;align-items:center!important;gap:.6rem!important;flex-wrap:wrap!important}
+  .footer>span:last-of-type{margin-left:auto!important;text-align:right!important}
+  #kb-full-calendar .fc{font-size:.92rem}
+  #kb-full-calendar .fc-toolbar-title{font-size:1rem}
+  #kb-full-calendar .event-post{background:linear-gradient(150deg,rgba(255,176,220,.95),rgba(170,177,255,.9));border:none;color:#fff}
+  #kb-full-calendar .event-holiday{background:#ff6b7f;border:none;color:#fff}
+  #kb-full-calendar .event-workday{background:#a58653;border:none;color:#fff}
+</style>
+<script>
+  (function () {
+    var root = document.querySelector('.update-calendar');
+    var calendarEl = document.getElementById('kb-full-calendar');
+    var selectedDateEl = document.getElementById('kb-selected-date');
+    var yearSelect = document.getElementById('kb-year-select');
+    var monthSelect = document.getElementById('kb-month-select');
+    if (!root || !calendarEl) return;
+
+    var postEvents = {{ $postEvents | jsonify | safeJS }};
+    var holidayRaw = {{ $holidayEvents | jsonify | safeJS }};
+    var holidayEvents = holidayRaw.map(function (item) {
+      var cls = item.isWorkday ? 'event-workday' : 'event-holiday';
+      return {
+        title: item.name + (item.isWorkday ? '（调休上班）' : ''),
+        start: item.date,
+        allDay: true,
+        className: cls
+      };
+    });
+    var allEvents = postEvents.concat(holidayEvents);
+    var calendarInstance = null;
+
+    var toggleButton = document.getElementById('calendar-style-toggle');
+    var storageKey = 'update-calendar-style';
+    var applyStyle = function (style) {
+      var isStarry = style === 'starry';
+      root.classList.toggle('style-starry', isStarry);
+      root.classList.toggle('style-sakura', !isStarry);
+      if (toggleButton) {
+        toggleButton.classList.toggle('is-starry', isStarry);
+        toggleButton.setAttribute('title', isStarry ? '当前: 星空蓝，点击切换到樱花粉' : '当前: 樱花粉，点击切换到星空蓝');
+        toggleButton.setAttribute('aria-label', isStarry ? '当前: 星空蓝，点击切换到樱花粉' : '当前: 樱花粉，点击切换到星空蓝');
+      }
+    };
+
+    var current = localStorage.getItem(storageKey);
+    if (current !== 'sakura' && current !== 'starry') {
+      current = root.classList.contains('style-starry') ? 'starry' : 'sakura';
+    }
+    applyStyle(current);
+
+    if (toggleButton) {
+      toggleButton.addEventListener('click', function () {
+        var style = root.classList.contains('style-starry') ? 'sakura' : 'starry';
+        applyStyle(style);
+        localStorage.setItem(storageKey, style);
+      });
+    }
+
+    var selectDate = function (dateStr) {
+      var oldSel = calendarEl.querySelector('.kb-date-selected');
+      if (oldSel) oldSel.classList.remove('kb-date-selected');
+      var cell = calendarEl.querySelector('[data-date="' + dateStr + '"]');
+      if (cell) cell.classList.add('kb-date-selected');
+      if (!selectedDateEl) return;
+      var matched = allEvents.filter(function (e) { return e.start === dateStr; });
+      if (matched.length === 0) {
+        selectedDateEl.textContent = '已选日期：' + dateStr + '（无事件）';
+        return;
+      }
+      var html = '<strong>已选日期：' + dateStr + '</strong><ul>';
+      matched.forEach(function (item) { html += '<li>' + item.title + '</li>'; });
+      html += '</ul>';
+      selectedDateEl.innerHTML = html;
+    };
+
+    var renderCalendar = function () {
+      if (typeof FullCalendar === 'undefined') {
+        calendarEl.innerHTML = '<p style="color:#c05086;margin:.4rem 0">日历组件加载失败，请检查网络后刷新。</p>';
+        return;
+      }
+      var calendar = new FullCalendar.Calendar(calendarEl, {
+        locale: 'zh-cn',
+        initialView: 'dayGridMonth',
+        initialDate: '{{ $latestDate }}',
+        firstDay: 1,
+        height: 'auto',
+        dayMaxEvents: 2,
+        headerToolbar: { left: 'today', center: 'title', right: '' },
+        buttonText: { today: '本月' },
+        events: allEvents,
+        eventDisplay: 'block',
+        eventDidMount: function (info) { info.el.title = info.event.title; },
+        dateClick: function (info) {
+          selectDate(info.dateStr);
+        }
+      });
+      calendar.render();
+      calendarInstance = calendar;
+      initMonthPicker();
+      selectDate('{{ $latestDate }}');
+    };
+
+    var updatePickerFromDate = function (dateObj) {
+      if (!yearSelect || !monthSelect || !dateObj) return;
+      yearSelect.value = String(dateObj.getFullYear());
+      monthSelect.value = String(dateObj.getMonth() + 1);
+    };
+
+    var initMonthPicker = function () {
+      if (!yearSelect || !monthSelect || !calendarInstance) return;
+      if (yearSelect.options.length === 0) {
+        var baseYear = new Date('{{ $latestDate }}').getFullYear();
+        for (var y = baseYear - 5; y <= baseYear + 5; y++) {
+          var o = document.createElement('option');
+          o.value = String(y);
+          o.textContent = y + '年';
+          yearSelect.appendChild(o);
+        }
+        for (var m = 1; m <= 12; m++) {
+          var mo = document.createElement('option');
+          mo.value = String(m);
+          mo.textContent = m + '月';
+          monthSelect.appendChild(mo);
+        }
+      }
+      updatePickerFromDate(calendarInstance.getDate());
+      var onPickerChange = function () {
+        var y = parseInt(yearSelect.value, 10);
+        var m = parseInt(monthSelect.value, 10);
+        if (!y || !m) return;
+        var target = y + '-' + String(m).padStart(2, '0') + '-01';
+        calendarInstance.gotoDate(target);
+        selectDate(target);
+      };
+      yearSelect.onchange = onPickerChange;
+      monthSelect.onchange = onPickerChange;
+    };
+
+    var loadScript = function (src, onOk, onErr) {
+      var s = document.createElement('script');
+      s.src = src;
+      s.defer = true;
+      s.onload = onOk;
+      s.onerror = onErr;
+      document.head.appendChild(s);
+    };
+    var loadCss = function (href) {
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = href;
+      document.head.appendChild(l);
+    };
+
+    // Try jsDelivr first, then unpkg fallback.
+    loadCss('https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css');
+    loadScript('https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js', function () {
+      loadScript('https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/locales-all.global.min.js', renderCalendar, renderCalendar);
+    }, function () {
+      loadCss('https://unpkg.com/fullcalendar@6.1.15/index.global.min.css');
+      loadScript('https://unpkg.com/fullcalendar@6.1.15/index.global.min.js', function () {
+        loadScript('https://unpkg.com/fullcalendar@6.1.15/locales-all.global.min.js', renderCalendar, renderCalendar);
+      }, renderCalendar);
+    });
+  })();
+</script>

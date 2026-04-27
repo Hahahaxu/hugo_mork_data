@@ -7,6 +7,8 @@ theme = 'PaperMod'
     env = "production"
     title = "Hahahaxu's Blog"
     description = "Backend Developer | Go | System Architect"
+    # 日历样式: sakura | starry
+    updateCalendarStyle = "sakura"
 
 [params.fuseOpts]
     isCaseSensitive = false
